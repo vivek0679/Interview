@@ -1,0 +1,96 @@
+trigger:
+  branches:
+    include:
+      - main
+
+variables:
+  solution: '**/*.sln'
+  buildConfiguration: 'Release'
+  devAppName: 'dev-app-name'
+  qaAppName: 'qa-app-name'
+  prodAppName: 'prod-app-name'
+
+stages:
+  - stage: 'Build'
+    jobs:
+      - job: 'Build'
+        displayName: 'Build'
+        pool:
+          vmImage: 'windows-latest'
+        steps:
+          - checkout: self
+          - task: DotNetCoreCLI@2
+            displayName: 'Build solution'
+            inputs:
+              command: 'build'
+              projects: '$(solution)'
+              arguments: '--configuration $(buildConfiguration)'
+
+  - stage: 'Dev'
+    jobs:
+      - job: 'DeployToDev'
+        displayName: 'Deploy to Dev'
+        pool:
+          vmImage: 'windows-latest'
+        steps:
+          - checkout: self
+          - task: DotNetCoreCLI@2
+            displayName: 'Publish'
+            inputs:
+              command: 'publish'
+              publishWebProjects: true
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/app'
+          - task: AzureWebApp@1
+            displayName: 'Deploy to Dev'
+            inputs:
+              azureSubscription: 'your-azure-subscription'
+              appName: '$(devAppName)'
+              package: '$(Build.ArtifactStagingDirectory)/app'
+              deploymentMethod: 'zipDeploy'
+              enableCustomDeployment: true
+
+  - stage: 'QA'
+    jobs:
+      - job: 'DeployToQA'
+        displayName: 'Deploy to QA'
+        pool:
+          vmImage: 'windows-latest'
+        steps:
+          - checkout: self
+          - task: DotNetCoreCLI@2
+            displayName: 'Publish'
+            inputs:
+              command: 'publish'
+              publishWebProjects: true
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/app'
+          - task: AzureWebApp@1
+            displayName: 'Deploy to QA'
+            inputs:
+              azureSubscription: 'your-azure-subscription'
+              appName: '$(qaAppName)'
+              package: '$(Build.ArtifactStagingDirectory)/app'
+              deploymentMethod: 'zipDeploy'
+              enableCustomDeployment: true
+
+  - stage: 'Prod'
+    jobs:
+      - job: 'DeployToProd'
+        displayName: 'Deploy to Prod'
+        pool:
+          vmImage: 'windows-latest'
+        steps:
+          - checkout: self
+          - task: DotNetCoreCLI@2
+            displayName: 'Publish'
+            inputs:
+              command: 'publish'
+              publishWebProjects: true
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/app'
+          - task: AzureWebApp@1
+            displayName: 'Deploy to Prod'
+            inputs:
+              azureSubscription: 'your-azure-subscription'
+              appName: '$(prodAppName)'
+              package: '$(Build.ArtifactStagingDirectory)/app'
+              deploymentMethod: 'zipDeploy'
+              enableCustomDeployment: true

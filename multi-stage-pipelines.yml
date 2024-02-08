@@ -1,0 +1,92 @@
+trigger:
+  branches:
+    include:
+      - main  # Define the branch to trigger the pipeline
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  solution: '**/*.sln'  # Path to your .sln file
+  buildConfiguration: 'Release'  # Build configuration (Release, Debug, etc.)
+
+stages:
+  - stage: 'Dev'
+    jobs:
+      - job: 'BuildAndDeploy'
+        displayName: 'Build and deploy to Dev'
+        steps:
+          - checkout: self
+          - task: DotNetCoreCLI@2
+            inputs:
+              command: 'build'
+              projects: '$(solution)'
+              arguments: '--configuration $(buildConfiguration)'
+          # Add additional steps for testing, quality checks, etc.
+          - task: DotNetCoreCLI@2
+            inputs:
+              command: 'publish'
+              projects: '$(solution)'
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+          - task: PublishPipelineArtifact@1
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)'
+              artifact: 'dev'
+
+  - stage: 'QA'
+    jobs:
+      - job: 'BuildAndDeploy'
+        displayName: 'Build and deploy to QA'
+        steps:
+          - checkout: self
+          - task: DownloadPipelineArtifact@2
+            inputs:
+              buildType: 'specific'
+              project: 'your-project-name'  # Replace with your project name
+              definition: 'your-pipeline-name'  # Replace with your pipeline name
+              specificBuildWithTriggering: true
+              buildVersionToDownload: 'latestSuccessful'
+              targetPath: '$(System.ArtifactsDirectory)/artifacts'
+          - task: DotNetCoreCLI@2
+            inputs:
+              command: 'build'
+              projects: '$(System.ArtifactsDirectory)/artifacts/**/*.csproj'
+              arguments: '--configuration $(buildConfiguration)'
+          - task: DotNetCoreCLI@2
+            inputs:
+              command: 'publish'
+              projects: '$(System.ArtifactsDirectory)/artifacts/**/*.csproj'
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+          - task: PublishPipelineArtifact@1
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)'
+              artifact: 'qa'
+
+  - stage: 'Prod'
+    jobs:
+      - job: 'BuildAndDeploy'
+        displayName: 'Build and deploy to Prod'
+        steps:
+          - checkout: self
+          - task: DownloadPipelineArtifact@2
+            inputs:
+              buildType: 'specific'
+              project: 'your-project-name'  # Replace with your project name
+              definition: 'your-pipeline-name'  # Replace with your pipeline name
+              specificBuildWithTriggering: true
+              buildVersionToDownload: 'latestSuccessful'
+              targetPath: '$(System.ArtifactsDirectory)/artifacts'
+          - task: DotNetCoreCLI@2
+            inputs:
+              command: 'build'
+              projects: '$(System.ArtifactsDirectory)/artifacts/**/*.csproj'
+              arguments: '--configuration $(buildConfiguration)'
+          - task: DotNetCoreCLI@2
+            inputs:
+              command: 'publish'
+              projects: '$(System.ArtifactsDirectory)/artifacts/**/*.csproj'
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+          - task: PublishPipelineArtifact@1
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)'
+              artifact: 'prod'

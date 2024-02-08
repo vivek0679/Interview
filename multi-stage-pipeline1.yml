@@ -1,0 +1,96 @@
+trigger:
+  branches:
+    include:
+      - main  # Define the branch to trigger the pipeline
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  solution: '**/*.sln'  # Path to your .sln file
+  buildConfiguration: 'Release'  # Build configuration (Release, Debug, etc.)
+  devAppName: 'dev-app-name'  # Replace with your Dev Azure App Service name
+  qaAppName: 'qa-app-name'    # Replace with your QA Azure App Service name
+  prodAppName: 'prod-app-name'  # Replace with your Prod Azure App Service name
+
+stages:
+  - stage: 'Dev'
+    jobs:
+      - job: 'BuildAndDeploy'
+        displayName: 'Build and deploy to Dev Azure App Service'
+        steps:
+          - checkout: self
+          - task: DotNetCoreCLI@2
+            displayName: 'Build .NET solution'
+            inputs:
+              command: 'build'
+              projects: '$(solution)'
+              arguments: '--configuration $(buildConfiguration)'
+          - task: DotNetCoreCLI@2
+            displayName: 'Publish .NET application'
+            inputs:
+              command: 'publish'
+              publishWebProjects: true
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+          - task: AzureRmWebAppDeployment@4
+            displayName: 'Deploy to Dev Azure App Service'
+            inputs:
+              ConnectionType: 'AzureRM'
+              azureSubscription: 'your-azure-subscription'
+              appType: 'webApp'
+              WebAppName: '$(devAppName)'
+              packageForLinux: '$(Build.ArtifactStagingDirectory)/**/*.zip'
+
+  - stage: 'QA'
+    jobs:
+      - job: 'BuildAndDeploy'
+        displayName: 'Build and deploy to QA Azure App Service'
+        steps:
+          - checkout: self
+          - task: DotNetCoreCLI@2
+            displayName: 'Build .NET solution'
+            inputs:
+              command: 'build'
+              projects: '$(solution)'
+              arguments: '--configuration $(buildConfiguration)'
+          - task: DotNetCoreCLI@2
+            displayName: 'Publish .NET application'
+            inputs:
+              command: 'publish'
+              publishWebProjects: true
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+          - task: AzureRmWebAppDeployment@4
+            displayName: 'Deploy to QA Azure App Service'
+            inputs:
+              ConnectionType: 'AzureRM'
+              azureSubscription: 'your-azure-subscription'
+              appType: 'webApp'
+              WebAppName: '$(qaAppName)'
+              packageForLinux: '$(Build.ArtifactStagingDirectory)/**/*.zip'
+
+  - stage: 'Prod'
+    jobs:
+      - job: 'BuildAndDeploy'
+        displayName: 'Build and deploy to Prod Azure App Service'
+        steps:
+          - checkout: self
+          - task: DotNetCoreCLI@2
+            displayName: 'Build .NET solution'
+            inputs:
+              command: 'build'
+              projects: '$(solution)'
+              arguments: '--configuration $(buildConfiguration)'
+          - task: DotNetCoreCLI@2
+            displayName: 'Publish .NET application'
+            inputs:
+              command: 'publish'
+              publishWebProjects: true
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+          - task: AzureRmWebAppDeployment@4
+            displayName: 'Deploy to Prod Azure App Service'
+            inputs:
+              ConnectionType: 'AzureRM'
+              azureSubscription: 'your-azure-subscription'
+              appType: 'webApp'
+              WebAppName: '$(prodAppName)'
+              packageForLinux: '$(Build.ArtifactStagingDirectory)/**/*.zip'
